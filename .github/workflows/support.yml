@@ -1,0 +1,37 @@
+name: Support Mizze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 * * * *'
+permissions:
+  contents: read
+  actions: write
+jobs:
+  support:
+    runs-on: ubuntu-latest
+    timeout-minutes: 315
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      FIREBASE_CONFIG_JSON: ${{ secrets.FIREBASE_CONFIG_JSON }}
+      BOT_VAULT_KEY: ${{ secrets.BOT_VAULT_KEY }}
+      RUN_SECONDS: '18000'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test
+      - name: Run support bot for five hours
+        id: worker
+        run: npm start
+      - name: Launch next worker
+        if: always() && (steps.worker.outputs.relaunch == 'true' || steps.worker.outcome == 'failure')
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node relaunch.cjs
