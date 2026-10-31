@@ -1,5 +1,6 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {App}=require('./app.cjs'),{configured}=require('./backend.cjs');
+const {renewLease,releaseLease}=require('./lease.cjs');
 const cfg=process.env.TELEGRAM_BOT_TOKEN?{token:process.env.TELEGRAM_BOT_TOKEN}:JSON.parse(fs.readFileSync(path.join(__dirname,'.private/config.json'),'utf8'));
 class ApiError extends Error{constructor(data){super('telegram_api_'+data.error_code);this.code=data.error_code;this.description=data.description||'';this.retry=data.parameters?.retry_after;}}
 class Telegram{
@@ -19,8 +20,16 @@ async function main(){
  const acquired=await lease.transaction(old=>!old||old.until<Date.now()?{owner,until:Date.now()+90000}:undefined);
  if(!acquired.committed){console.log('{"event":"another_worker_active"}');process.exit(0);}
  let stop=false;
- const release=async()=>{await lease.transaction(old=>old?.owner===owner?null:undefined).catch(()=>{});};
- const renew=setInterval(async()=>{try{const r=await lease.transaction(old=>old?.owner===owner?{owner,until:Date.now()+90000}:undefined);if(!r.committed)process.exit(2);}catch{process.exit(2);}},20000);
+ const release=async()=>{await releaseLease(lease,owner).catch(()=>{});};
+ let lastRenewed=Date.now(),renewing=false;
+ const renew=setInterval(async()=>{
+  if(renewing)return;renewing=true;
+  try{
+   if(!await renewLease(lease,owner)){console.log('{"event":"lease_lost"}');process.exit(2);}
+   lastRenewed=Date.now();console.log('{"event":"lease_renewed"}');
+  }catch{console.log('{"event":"lease_network_retry"}');if(Date.now()-lastRenewed>70000)process.exit(2);}
+  finally{renewing=false;}
+ },20000);
  for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{stop=true;});
  const states=new Map();
  const storage={get:id=>states.get(id),async set(id,value){await root.child('chats/'+id).set(value);states.set(id,value);}};

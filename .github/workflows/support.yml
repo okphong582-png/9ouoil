@@ -1,6 +1,11 @@
 name: Support Mizze
 on:
   workflow_dispatch:
+    inputs:
+      rotation_test:
+        description: 'Verify short worker rotation before the normal five-hour run'
+        type: boolean
+        default: false
   push:
     branches: [main]
   schedule:
@@ -16,7 +21,7 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       FIREBASE_CONFIG_JSON: ${{ secrets.FIREBASE_CONFIG_JSON }}
       BOT_VAULT_KEY: ${{ secrets.BOT_VAULT_KEY }}
-      RUN_SECONDS: '18000'
+      RUN_SECONDS: ${{ (github.event_name == 'push' || inputs.rotation_test) && '65' || '18000' }}
     steps:
       - uses: actions/checkout@v4
         with:

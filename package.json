@@ -1,1 +1,1 @@
-{"name":"support-mizze-bot","version":"1.0.0","private":true,"scripts":{"test":"node --test app.test.cjs","start":"node cloud.cjs"},"dependencies":{"firebase-admin":"^13.5.0"},"engines":{"node":">=22"}}
+{"name":"support-mizze-bot","version":"1.0.0","private":true,"scripts":{"test":"node --test app.test.cjs lease.test.cjs","start":"node cloud.cjs"},"dependencies":{"firebase-admin":"^13.5.0"},"engines":{"node":">=22"}}
